@@ -2,134 +2,143 @@
 session_start();
 include("../config/db.php");
 
-if (isset($_POST['login'])) {
+$error = "";
+
+if(isset($_POST['login'])) {
+
     $email = $_POST['email'];
     $password = $_POST['password'];
 
-    $result = $conn->query("SELECT * FROM users WHERE email='$email'");
-    $user = $result->fetch_assoc();
+    $stmt = $conn->prepare("SELECT * FROM users WHERE email=?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
 
-    if ($user && password_verify($password, $user['password'])) {
-        $_SESSION['user'] = $user['username'];
-        $_SESSION['user_id'] = $user['id'];
-        header("Location: ../pages/dashboard.php");
+    $result = $stmt->get_result();
+
+    if($result && $result->num_rows > 0){
+
+        $user = $result->fetch_assoc();
+
+        // ✅ FIX: supports BOTH bcrypt + old MD5 users
+        if (
+            password_verify($password, $user['password']) 
+            || $user['password'] === md5($password)
+        ) {
+
+            $_SESSION['user'] = $user['username'];
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['role'] = $user['role'] ?? 'user';
+
+            header("Location: ../pages/dashboard.php");
+            exit();
+
+        } else {
+            $error = "❌ Invalid password!";
+        }
+
     } else {
-        $error = "Invalid credentials!";
+        $error = "❌ User not found!";
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login</title>
-<link rel="stylesheet" href="../assets/css/style.css">
+
 <style>
-body {
-    margin: 0;
-    font-family: 'Segoe UI';
-    background: linear-gradient(135deg, #4facfe, #00f2fe);
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
+body{
+    margin:0;
+    font-family:Segoe UI;
+    background: linear-gradient(135deg,#0f172a,#020617);
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
 }
 
-/* Header */
-.header {
-    padding: 15px 40px;
-    color: white;
-    font-size: 22px;
-    font-weight: bold;
+.auth-box{
+    width:360px;
+    padding:35px;
+    border-radius:18px;
+    background: rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(12px);
+    color:white;
+    text-align:center;
 }
 
-/* Center Box */
-.container {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+input{
+    width:100%;
+    padding:12px;
+    margin:10px 0;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.1);
+    background:#0b1220;
+    color:white;
 }
 
-/* Glass Card */
-.card {
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(10px);
-    padding: 40px;
-    border-radius: 15px;
-    width: 300px;
-    color: white;
-    text-align: center;
-    animation: fadeIn 1s ease;
+button{
+    width:100%;
+    padding:12px;
+    background:#3b82f6;
+    border:none;
+    border-radius:10px;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
 }
 
-input {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    border: none;
-    border-radius: 8px;
-}
-
-button {
-    width: 100%;
-    padding: 10px;
-    border: none;
-    border-radius: 8px;
-    background: #fff;
-    color: #333;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.3s;
-}
-
-button:hover {
-    background: #ddd;
-}
-
-a {
-    color: #fff;
-    text-decoration: underline;
-}
-
-/* Footer */
-.footer {
-    text-align: center;
-    padding: 10px;
-    color: white;
-    font-size: 14px;
-}
-
-@keyframes fadeIn {
-    from {opacity: 0; transform: translateY(20px);}
-    to {opacity: 1; transform: translateY(0);}
+.error{
+    background: rgba(239,68,68,0.15);
+    padding:10px;
+    border-radius:8px;
+    margin-bottom:10px;
 }
 </style>
-
 </head>
 
 <body>
 
-<div class="header">🔍 Lost & Found</div>
+<div class="auth-box">
 
-<div class="container">
-    <div class="card">
-        <h2>Login</h2>
+<h2>🔍 Login</h2>
 
-        <?php if(isset($error)) echo "<p>$error</p>"; ?>
+<?php if($error != ""): ?>
+<div class="error"><?= $error ?></div>
+<?php endif; ?>
 
-        <form method="POST">
-            <input type="email" name="email" placeholder="Email" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <button name="login">Login</button>
-        </form>
+<form method="POST">
 
-        <p>Don't have an account? 
-            <a href="register.php">Register</a>
-        </p>
-    </div>
+<input type="email" name="email" placeholder="Email" required>
+
+<div style="position:relative;">
+    <input type="password" id="password" name="password" placeholder="Password" required>
+
+    <span onclick="togglePassword()" 
+          style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer;">
+        👁
+    </span>
 </div>
 
-<div class="footer">© 2026 Lost & Found App</div>
+<button type="submit" name="login">Login</button>
+
+</form>
+
+<p style="margin-top:15px;">
+No account? <a href="register.php">Register</a>
+</p>
+
+</div>
+
+<script>
+function togglePassword(){
+    const pass = document.getElementById("password");
+    pass.type = pass.type === "password" ? "text" : "password";
+}
+</script>
 
 </body>
 </html>

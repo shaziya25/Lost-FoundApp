@@ -110,14 +110,18 @@ if(isset($_POST['register'])){
 
     $username = $_POST['username'];
     $email = $_POST['email'];
-    $password = md5($_POST['password']);
+    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
 
     $check = $conn->query("SELECT * FROM users WHERE email='$email'");
+
     if($check->num_rows > 0){
         echo "<script>alert('Email already exists');</script>";
     } else {
-        $conn->query("INSERT INTO users (username,email,password) VALUES ('$username','$email','$password')");
-        echo "<script>alert('Registered Successfully'); window.location='login.php';</script>";
+        $conn->query("INSERT INTO users (username,email,password) 
+                      VALUES ('$username','$email','$password')");
+
+        // AUTO REDIRECT TO LOGIN (your requirement)
+        header("Location: login.php?registered=1");
+        exit();
     }
 }
-?>

@@ -1,28 +1,46 @@
 <?php
 session_start();
-include("../config/db.php");
+require_once("../config/db.php");
 
-$user = $_SESSION['user_id'];
-$receiver = $_GET['receiver'];
-$item_id = $_GET['item_id'];
+if (!isset($_SESSION['user_id'])) exit();
 
-$q = $conn->query("
-SELECT * FROM messages 
-WHERE 
-(
-(sender_id='$user' AND receiver_id='$receiver')
-OR 
-(sender_id='$receiver' AND receiver_id='$user')
-)
-AND item_id='$item_id'
-ORDER BY id ASC
-");
+$sender = $_SESSION['user_id'];
+$receiver = $_GET['receiver'] ?? 0;
+$item_id = $_GET['item_id'] ?? 0;
 
-while($row = $q->fetch_assoc()){
-    if($row['sender_id'] == $user){
-        echo "<div class='msg me'>".$row['message']."</div>";
-    } else {
-        echo "<div class='msg other'>".$row['message']."</div>";
+/* GET MESSAGES */
+$sql = "SELECT * FROM messages 
+        WHERE item_id='$item_id'
+        AND (
+            (sender_id='$sender' AND receiver_id='$receiver')
+            OR
+            (sender_id='$receiver' AND receiver_id='$sender')
+        )
+        ORDER BY id ASC";
+
+$res = $conn->query($sql);
+
+if(!$res){
+    die("DB Error: " . $conn->error);
+}
+
+/* SHOW MESSAGES */
+while($row = $res->fetch_assoc()){
+
+    $class = ($row['sender_id'] == $sender) ? "me" : "other";
+
+    echo "<div class='msg $class'>";
+    echo "<span class='delete-btn' onclick='deleteMsg(".$row['id'].")'>🗑</span>";
+    /* TEXT */
+    if(!empty($row['message'])){
+        echo "<div class='text'>".$row['message']."</div>";
     }
+
+    /* IMAGE */
+    if(!empty($row['image'])){
+        echo "<img src='../uploads/".$row['image']."' class='chat-img'>";
+    }
+
+    echo "</div>";
 }
 ?>
